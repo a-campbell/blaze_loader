@@ -8,7 +8,6 @@ from weakref import WeakKeyDictionary
 
 
 class LazyAttr(object):
-
     def __init__(self, get):
         self._get = get
         self._cache = WeakKeyDictionary()
@@ -24,30 +23,32 @@ class LazyAttr(object):
             return val
 
 
-def load(db_info_path=None):
+def load(target_info_path=None, config=None):
     class _quanto_blaze(object):
 
-        db_infos = load_infos_from_json(db_info_path=db_info_path)
+        target_infos = _load_infos_from_json(target_info_path=target_info_path)
         locals_ = locals()
 
-        for name, db_info in db_infos.iteritems():
+        for name, target_info in target_infos.iteritems():
             @LazyAttr
-            def _lazyattr(self, _name=name, _db_info=db_info):
-                db = _db_info.get('db')
-                table = _db_info.get('table')
-                schema = _db_info.get('schema', None)
-                datashape = _db_info.get('datashape', None)
-                columns = _db_info.get('columns', None)
+            def _lazyattr(self, _name=name, _target_info=target_info):
+                target = _target_info.get('target')
+                table = _target_info.get('table')
+                schema = _target_info.get('schema', None)
+                datashape = _target_info.get('datashape', None)
+                columns = _target_info.get('columns', None)
 
                 try:
                     bz_data = _add_blaze_data(_name,
-                                              db,
-                                              table,
+                                              target,
+                                              table=table,
                                               schema=schema,
                                               datashape=datashape,
-                                              columns=columns)
+                                              columns=columns,
+                                              config=config)
 
                     return bz_data
+
                 except Exception:
                     raise AttributeError(
                         "Could not load {}. Check your connection info"
@@ -58,82 +59,94 @@ def load(db_info_path=None):
 
             del _lazyattr
             del name
-            del db_info
+            del target_info
+
+        def __str__(self):
+            target_infos = load_infos_from_json()
+            targets = []
+            for k, v in target_infos.iteritems():
+                target_str = str(k) + ": " + str(v['target'])
+                if v['table'] is not None:
+                    target_str += " " + str(v['table'])
+                targets.append(target_str)
+
+            targets_str = "\n".join(targets)
+            return "databases loaded: \n" + targets_str
 
     return _quanto_blaze()
 
 
-def print_db_infos():
-    db_infos = load_infos_from_json()
-    dbs = []
-    for k, v in db_infos.iteritems():
-        db_str = str(k) + ": " + str(v['table'])
-        dbs.append(db_str)
 
-    dbs_str = "\n".join(dbs)
-    return "databases loaded: \n" + dbs_str
-
-
-def _add_blaze_data(name, db, table, schema=None,
-                    datashape=None, columns=None):
-    resource = make_blaze_resource(db, table, schema)
-    bz_data = make_blaze_data_obj(resource, columns, datashape)
+def _add_blaze_data(name, target, table=None, schema=None,
+                    datashape=None, columns=None, config=None):
+    resource = _make_blaze_resource(target, table=table,
+                                    schema=schema, config=config)
+    bz_data = _make_blaze_data_obj(resource, columns=columns,
+                                   datashape=datashape)
 
     return bz_data
 
 
-def save_blaze_infos(name, db, table, schema=None,
-                     datashape=None, columns=None):
-        db_infos = load_infos_from_json()
+def save_blaze_infos(name, target, table=None, schema=None,
+                     datashape=None, columns=None, target_info_path=None):
+        target_infos = load_infos_from_json()
 
         new_info_dict = {
-            'db': db,
+            'target': target,
             'table': table,
             'schema': schema,
             'datashape': datashape,
             'columns': columns
         }
 
-        db_infos[name] = new_info_dict
+        target_infos[name] = new_info_dict
 
-        _write_infos_to_json(db_infos)
-        print( name + ": " + str(new_info_dict) + " SAVED")
-
-
-def _write_infos_to_json(db_infos):
-    location = os.path.realpath(os.path.join(os.getcwd(),
-                                os.path.dirname(__file__)))
-    f_path = location + "/databases.json"
-    with open(f_path, 'wb') as f:
-        json.dump(db_infos, f)
+        _write_infos_to_json(target_infos, target_info_path=target_info_path)
+        print(name + ": " + str(new_info_dict) + " SAVED")
 
 
-def load_infos_from_json(db_info_path=None):
+def _write_infos_to_json(target_infos, target_info_path=None):
+    if target_info_path is None:
+        location = os.path.realpath(os.path.join(os.getcwd(),
+                                    os.path.dirname(__file__)))
+        target_info_path = location + "/databases.json"
+
+    with open(target_info_path, 'wb') as f:
+        json.dump(target_infos, f)
+
+
+def _load_infos_from_json(target_info_path=None):
     try:
-        if db_info_path is None:
+        if target_info_path is None:
             location = os.path.realpath(os.path.join(os.getcwd(),
                                         os.path.dirname(__file__)))
-            db_info_path = location + "/databases.json"
+            target_info_path = location + "/databases.json"
 
-        with open(db_info_path, 'rb') as f:
-            db_infos = json.load(f)
+        with open(target_info_path, 'rb') as f:
+            target_infos = json.load(f)
     except:
-        print( "Warning: No saved databases found.")
-        db_infos = {}
+        print("Warning: No saved databases found.")
+        target_infos = {}
 
-    return db_infos
+    return target_infos
 
 
-def make_blaze_resource(db, table, schema):
-    hs_s = getattr(host_settings, db)
-    conn_str = hs_s + "::" + table
+def _make_blaze_resource(target, table=None, schema=None,
+                         config=None):
+    if config is not None:
+        conn_str = getattr(config, target)
+    else:
+        conn_str = target
+
+    if table is not None:
+        conn_str = conn_str + "::" + table
 
     t = bz.resource(conn_str, schema=schema)
 
     return t
 
 
-def make_blaze_data_obj(resource, columns, datashape):
+def _make_blaze_data_obj(resource, columns=None, datashape=None):
     if columns is not None:
         s = []
         for col in columns:

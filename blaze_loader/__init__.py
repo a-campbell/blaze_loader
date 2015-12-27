@@ -1,1 +1,1 @@
-import blaze_loader
+from blaze_loader import *
