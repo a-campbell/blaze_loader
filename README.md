@@ -5,7 +5,7 @@ Copy-pasting the code needed to genereate [Blaze](www.github.com/blaze/blaze) Da
 
 To save connection information, pass a name (anything you want) and target string to the `save_blaze_info` method. The target string can point towards any data storage backend that Blaze can handle. You can also pass `save_blaze_info` the optional keyword arguments `table` (specify a table to use in a SQL connection), `schema` (specify a schema to use in SQL connection), `columns` (only create Data object with a subset of the available columns in a SQL connection), and `datashape` (define the [datashape](www.github.com/blaze/datashape) that Blaze will use to represent your data in its expression engine).
 ```
-from blaze_loader import blaze_loader
+import blaze_loader
 
 blaze_loader.save_blaze_info('users', 'postgresql://foo:bar@db.com:5432/data', table='users', schema='funnel', 
 							  datashape='var * name:string, log_ins: int64')
@@ -37,3 +37,5 @@ db = blaze_loader.load(config=ConnectionCreds)
 ```
 
 Blaze Data objects are lazily loaded attributes of the instance you create when calling `blaze_loader.load()`. This means that the Data object is not actually created until you call for it. Lazy loading is helpful when you have many data objects saved by blaze_loader, as it removes the cost of initializing unused Data objects. (Initializing a Data object can be slow when Blaze isn’t passed a datashape and must reflect the requested table’s schema.) Lazy loading also prevents our whole wrapper class from breaking when there is an error in the initialization of one Blaze Data object. You’ll only run into that error when you try to use the offending Data object. 
+
+You can pip install this repo!

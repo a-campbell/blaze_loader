@@ -14,7 +14,6 @@ class LazyAttr(object):
 
     def __get__(self, instance, owner):
         if instance is None:
-
             return self
         try:
             return self._cache[instance]
@@ -24,14 +23,14 @@ class LazyAttr(object):
 
 
 def load(target_info_path=None, config=None):
-    class _quanto_blaze(object):
-
+    class _blaze_loader(object):
         target_infos = _load_infos_from_json(target_info_path=target_info_path)
         locals_ = locals()
 
         for name, target_info in target_infos.iteritems():
             @LazyAttr
-            def _lazyattr(self, _name=name, _target_info=target_info):
+            def _lazyattr(self, _name=name, _target_info=target_info, 
+                          config=config):
                 target = _target_info.get('target')
                 table = _target_info.get('table')
                 schema = _target_info.get('schema', None)
@@ -62,7 +61,7 @@ def load(target_info_path=None, config=None):
             del target_info
 
         def __str__(self):
-            target_infos = load_infos_from_json()
+            target_infos = _load_infos_from_json()
             targets = []
             for k, v in target_infos.iteritems():
                 target_str = str(k) + ": " + str(v['target'])
@@ -73,7 +72,7 @@ def load(target_info_path=None, config=None):
             targets_str = "\n".join(targets)
             return "databases loaded: \n" + targets_str
 
-    return _quanto_blaze()
+    return _blaze_loader()
 
 
 
@@ -89,7 +88,7 @@ def _add_blaze_data(name, target, table=None, schema=None,
 
 def save_blaze_infos(name, target, table=None, schema=None,
                      datashape=None, columns=None, target_info_path=None):
-        target_infos = load_infos_from_json()
+        target_infos = _load_infos_from_json()
 
         new_info_dict = {
             'target': target,
