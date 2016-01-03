@@ -4,13 +4,12 @@ from sqlalchemy import select
 import json
 
 import os
-from weakref import WeakKeyDictionary
 
 
 class LazyAttr(object):
     def __init__(self, get):
         self._get = get
-        self._cache = WeakKeyDictionary()
+        self._cache = {}
 
     def __get__(self, instance, owner):
         if instance is None:
@@ -18,7 +17,9 @@ class LazyAttr(object):
         try:
             return self._cache[instance]
         except KeyError:
-            self._cache[instance] = val = self._get(instance)
+            val = self._get(instance)
+            self._cache[instance] = val
+
             return val
 
 
